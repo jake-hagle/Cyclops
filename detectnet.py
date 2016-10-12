@@ -13,6 +13,10 @@ import ipaddress
 import subprocess
 import time
 import threading
+import logging
+from scapy.all import *
+
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 succ = []
 succlock = threading.Lock()
@@ -285,23 +289,49 @@ class check_port(threading.Thread):
         except:   
            pass   
 
-def port_scan(valid_hosts, ports):
+def port_scan(valid_hosts, ports, synflg):
     """
     Loops through each valid host and then attempts to make a connection to each specified ports
     :param valid_hosts: a list of tuples containing(ip_addres, hostname)
     :param ports: a list of specified ports to scanning
     """
     threadlist = []
-    for ip, hostname in valid_hosts:
-        for port in ports:
-            tmp = check_port(ip, port)
-            threadlist.append(tmp)
-            tmp.start()
-        for thread in threadlist:
-            thread.join()
+    if synflg:
+        for ip, hostname in valid_hosts:
+            for port in ports:
+                tmp = syn_scan(ip, port)
+                threadlist.append(tmp)
+                tmp.start()
+            for thread in threadlist:
+                thread.join()
+    else:            
+        for ip, hostname in valid_hosts:
+            for port in ports:
+                tmp = check_port(ip, port)
+                threadlist.append(tmp)
+                tmp.start()
+            for thread in threadlist:
+                thread.join()
 
-        
-        
+
+class syn_scan(threading.Thread):
+    def __init__(self, ip, port):
+        threading.Thread.__init__(self)
+        self.ip = ip
+        self.port = port
+    def run(self):
+        try:
+            conf.verb = 0     
+            SYNpack = sr1(IP(dst=self.ip)/TCP(sport=RandShort(),dport=self.port, flags="S"))
+            pktflgs = SYNpack.getlayer(TCP).flags
+            if pktflgs == 0x12:
+                succlock.acquire()
+                succ.append((self.ip, self.port))
+                succlock.release()
+            """RSTpkt = IP(dst=self.ip)/TCP(sport = RandShort(), dport=self.port, flags="R")
+                                                sendp(RSTpkt)"""
+        except:
+            pass
  
     
 
@@ -323,6 +353,7 @@ def main():
     parser.add_argument('--no-scan', help='skip scanning for live hosts', action='store_true')
     parser.add_argument('--port-scan', help='scans all live hosts\' first 1000 ports', action='store_true')
     parser.add_argument('--all-ports', help='scans all 65535 ports', default=False, action='store_true')
+    parser.add_argument('--syn', help='syn scan', default=False, action='store_true')
     args = parser.parse_args()
 
     # check platform
@@ -343,7 +374,10 @@ def main():
             print_data(data, out)
     
 
-
+    if args.syn:
+        synflg = True
+    else:
+        synflg = False
     if not args.no_scan:
         # find other hosts on networks
         valid_hosts = []
@@ -362,7 +396,7 @@ def main():
                 ports = range(0, 1001)
             else:
                 ports = range(0, 65536)
-            port_scan(valid_hosts, ports)
+            port_scan(valid_hosts, ports, synflg)
             print('\nPort Scan:')
             print('\t%-20s%-20s%-20s' % ('IP', 'Port', 'Status'))
             for address, port in succ:
