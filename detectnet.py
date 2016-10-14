@@ -289,7 +289,7 @@ class check_port(threading.Thread):
         except:   
            pass   
 
-def port_scan(valid_hosts, ports, synflg):
+def port_scan(valid_hosts, ports, synflg, thread_count=20):
     """
     Loops through each valid host and then attempts to make a connection to each specified ports
     :param valid_hosts: a list of tuples containing(ip_addres, hostname)
@@ -302,6 +302,12 @@ def port_scan(valid_hosts, ports, synflg):
                 tmp = syn_scan(ip, port)
                 threadlist.append(tmp)
                 tmp.start()
+                while len(threadlist) > thread_count:
+                    for thread in threadlist:
+                        thread.join(0.1)
+                        if not thread.isAlive():
+                            threadlist.remove(thread)
+                            break
             for thread in threadlist:
                 thread.join()
     else:            
@@ -310,6 +316,12 @@ def port_scan(valid_hosts, ports, synflg):
                 tmp = check_port(ip, port)
                 threadlist.append(tmp)
                 tmp.start()
+                while len(threadlist) > thread_count:
+                    for thread in threadlist:
+                        thread.join(0.1)
+                        if not thread.isAlive():
+                            threadlist.remove(thread)
+                            break
             for thread in threadlist:
                 thread.join()
 
@@ -328,8 +340,8 @@ class syn_scan(threading.Thread):
                 succlock.acquire()
                 succ.append((self.ip, self.port))
                 succlock.release()
-            """RSTpkt = IP(dst=self.ip)/TCP(sport = RandShort(), dport=self.port, flags="R")
-                                                sendp(RSTpkt)"""
+            RSTpkt = IP(dst=self.ip)/TCP(sport = RandShort(), dport=self.port, flags="R")
+            sendp(RSTpkt)
         except:
             pass
  
@@ -349,11 +361,11 @@ def main():
         within that range.  Each interface consists of a name, network IP, subnet, and gateway.
         """)
     parser.add_argument('--threads', help='maximum number of threads to use', type=int, default=20)
-    parser.add_argument('--out', help='send output to a text file', default=sys.stdout)
+    parser.add_argument('-o','--out', help='send output to a text file', default=sys.stdout)
     parser.add_argument('--no-scan', help='skip scanning for live hosts', action='store_true')
-    parser.add_argument('--port-scan', help='scans all live hosts\' first 1000 ports', action='store_true')
-    parser.add_argument('--all-ports', help='scans all 65535 ports', default=False, action='store_true')
-    parser.add_argument('--syn', help='syn scan', default=False, action='store_true')
+    parser.add_argument('-p','--port-scan', help='scans all live hosts\' first 1000 ports', action='store_true')
+    parser.add_argument('-a','--all-ports', help='scans all 65535 ports', default=False, action='store_true')
+    parser.add_argument('-s','--syn', help='syn scan', default=False, action='store_true')
     args = parser.parse_args()
 
     # check platform
@@ -396,7 +408,7 @@ def main():
                 ports = range(0, 1001)
             else:
                 ports = range(0, 65536)
-            port_scan(valid_hosts, ports, synflg)
+            port_scan(valid_hosts, ports, synflg, args.threads)
             print('\nPort Scan:')
             print('\t%-20s%-20s%-20s' % ('IP', 'Port', 'Status'))
             for address, port in succ:
