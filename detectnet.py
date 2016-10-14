@@ -386,10 +386,7 @@ def main():
             print_data(data, out)
     
 
-    if args.syn:
-        synflg = True
-    else:
-        synflg = False
+    
     if not args.no_scan:
         # find other hosts on networks
         valid_hosts = []
@@ -408,7 +405,7 @@ def main():
                 ports = range(0, 1001)
             else:
                 ports = range(0, 65536)
-            port_scan(valid_hosts, ports, synflg, args.threads)
+            port_scan(valid_hosts, ports, args.syn, args.threads)
             print('\nPort Scan:')
             print('\t%-20s%-20s%-20s' % ('IP', 'Port', 'Status'))
             for address, port in succ:
