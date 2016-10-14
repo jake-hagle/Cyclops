@@ -273,6 +273,12 @@ def print_hosts(valid_hosts, out=sys.stdout):
         print('\t%-20s%-20s' % (address, hostname), file=out)
 
 
+def print_portscan(succ, out=sys.stdout):
+    print('\nPort Scan:', file=out)
+    print('\t%-20s%-20s%-20s' % ('IP', 'Port', 'Status'), file=out)
+    for address, port in succ:
+        print('\t%-20s%-20s%-20s' % (address, port, 'Open'), file=out)
+
 class check_port(threading.Thread):
     def __init__ (self, ip, port):
         threading.Thread.__init__(self)
@@ -406,10 +412,13 @@ def main():
             else:
                 ports = range(0, 65536)
             port_scan(valid_hosts, ports, args.syn, args.threads)
-            print('\nPort Scan:')
-            print('\t%-20s%-20s%-20s' % ('IP', 'Port', 'Status'))
-            for address, port in succ:
-                print('\t%-20s%-20s%-20s' % (address, port, 'Open'))
+
+        if args.out == sys.stdout:
+            print_portscan(succ)
+        else:
+            with open(args.out, 'a') as out:
+                print_portscan(succ, out)
+            
     else:
         if args.port_scan:
         	print("Host scan was not initiated. Pleas restart without the --no-scan option")
