@@ -14,7 +14,7 @@ import subprocess
 import time
 import threading
 import logging
-from scapy.all import *
+from lib.scapy.all import *
 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
